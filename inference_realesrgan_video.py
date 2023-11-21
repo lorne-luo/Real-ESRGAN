@@ -19,6 +19,7 @@ try:
     import ffmpeg
 except ImportError:
     import pip
+
     pip.main(['install', '--user', 'ffmpeg-python'])
     import ffmpeg
 
@@ -68,7 +69,7 @@ class Reader:
             self.stream_reader = (
                 ffmpeg.input(video_path).output('pipe:', format='rawvideo', pix_fmt='bgr24',
                                                 loglevel='error').run_async(
-                                                    pipe_stdin=True, pipe_stdout=True, cmd=args.ffmpeg_bin))
+                    pipe_stdin=True, pipe_stdout=True, cmd=args.ffmpeg_bin))
             meta = get_video_meta_info(video_path)
             self.width = meta['width']
             self.height = meta['height']
@@ -146,20 +147,20 @@ class Writer:
             self.stream_writer = (
                 ffmpeg.input('pipe:', format='rawvideo', pix_fmt='bgr24', s=f'{out_width}x{out_height}',
                              framerate=fps).output(
-                                 audio,
-                                 video_save_path,
-                                 pix_fmt='yuv420p',
-                                 vcodec='libx264',
-                                 loglevel='error',
-                                 acodec='copy').overwrite_output().run_async(
-                                     pipe_stdin=True, pipe_stdout=True, cmd=args.ffmpeg_bin))
+                    audio,
+                    video_save_path,
+                    pix_fmt='yuv420p',
+                    vcodec='libx264',
+                    loglevel='error',
+                    acodec='copy').overwrite_output().run_async(
+                    pipe_stdin=True, pipe_stdout=True, cmd=args.ffmpeg_bin))
         else:
             self.stream_writer = (
                 ffmpeg.input('pipe:', format='rawvideo', pix_fmt='bgr24', s=f'{out_width}x{out_height}',
                              framerate=fps).output(
-                                 video_save_path, pix_fmt='yuv420p', vcodec='libx264',
-                                 loglevel='error').overwrite_output().run_async(
-                                     pipe_stdin=True, pipe_stdout=True, cmd=args.ffmpeg_bin))
+                    video_save_path, pix_fmt='yuv420p', vcodec='libx264',
+                    loglevel='error').overwrite_output().run_async(
+                    pipe_stdin=True, pipe_stdout=True, cmd=args.ffmpeg_bin))
 
     def write_frame(self, frame):
         frame = frame.astype(np.uint8).tobytes()
@@ -269,7 +270,8 @@ def inference_video(args, video_save_path, device=None, total_workers=1, worker_
         else:
             writer.write_frame(output)
 
-        torch.cuda.synchronize(device)
+        if device and device.lower() != 'cpu':
+            torch.cuda.synchronize(device)
         pbar.update(1)
 
     reader.close()
@@ -280,7 +282,7 @@ def run(args):
     args.video_name = osp.splitext(os.path.basename(args.input))[0]
     video_save_path = osp.join(args.output, f'{args.video_name}_{args.suffix}.mp4')
 
-    if args.extract_frame_first:
+    if args.extract_frame_first or not args.extract_frame_first:
         tmp_frames_folder = osp.join(args.output, f'{args.video_name}_inp_tmp_frames')
         os.makedirs(tmp_frames_folder, exist_ok=True)
         os.system(f'ffmpeg -i {args.input} -qscale:v 1 -qmin 1 -qmax 1 -vsync 0  {tmp_frames_folder}/frame%08d.png')
@@ -292,7 +294,13 @@ def run(args):
         inference_video(args, video_save_path)
         return
 
+    if num_process == 0:
+        device = 'cpu'
+        inference_video(args, video_save_path, device=device)
+        return
+
     ctx = torch.multiprocessing.get_context('spawn')
+    print(num_process)
     pool = ctx.Pool(num_process)
     os.makedirs(osp.join(args.output, f'{args.video_name}_out_tmp_videos'), exist_ok=True)
     pbar = tqdm(total=num_process, unit='sub_video', desc='inference')
