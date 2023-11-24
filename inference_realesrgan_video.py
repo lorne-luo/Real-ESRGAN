@@ -159,8 +159,12 @@ class Writer:
             self.stream_writer = (
                 ffmpeg.input('pipe:', format='rawvideo', pix_fmt='bgr24', s=f'{out_width}x{out_height}',
                              framerate=fps).output(
-                    video_save_path, pix_fmt='yuv420p', vcodec='libx264',
-                    loglevel='error').overwrite_output().run_async(
+                    video_save_path,
+                    pix_fmt='yuv420p',
+                    vcodec='libx264',
+                    loglevel='error',
+                    video_bitrate='8M'
+                ).overwrite_output().run_async(
                     pipe_stdin=True, pipe_stdout=True, cmd=args.ffmpeg_bin))
 
     def write_frame(self, frame):
