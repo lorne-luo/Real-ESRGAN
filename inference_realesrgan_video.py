@@ -76,7 +76,6 @@ class Reader:
             self.input_fps = meta['fps']
             self.audio = meta['audio']
             self.nb_frames = meta['nb_frames']
-
         else:
             if self.input_type.startswith('image'):
                 self.paths = [args.input]
@@ -152,7 +151,9 @@ class Writer:
                     pix_fmt='yuv420p',
                     vcodec='libx264',
                     loglevel='error',
-                    acodec='copy').overwrite_output().run_async(
+                    acodec='copy',
+                    video_bitrate='8M'
+                ).overwrite_output().run_async(
                     pipe_stdin=True, pipe_stdout=True, cmd=args.ffmpeg_bin))
         else:
             self.stream_writer = (
